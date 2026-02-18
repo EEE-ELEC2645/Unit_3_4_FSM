@@ -141,7 +141,8 @@ int _write(int file, char *ptr, int len) {
 
 // Current FSM state (volatile because it's modified in interrupt handler)
 // This variable determines which state handler function gets called in the main loop
-volatile FSM_State_t current_state = STATE_CIRCLES;
+// Named with 'g_' prefix to indicate it's a global variable accessed across multiple scopes
+volatile FSM_State_t g_current_state = STATE_CIRCLES;
 
 // Flag to indicate state has changed (set by interrupt, cleared in main loop)
 // Used to trigger the state info display when transitioning between states
@@ -216,7 +217,7 @@ int main(void)
     // Ensure LD2 on PA5 starts OFF
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 
-    printf("FSM Demo initialized. Current state: %s\n", state_names[current_state]);
+    printf("FSM Demo initialized. Current state: %s\n", state_names[g_current_state]);
 
     // Display initial state
     display_state_info();
@@ -231,8 +232,8 @@ int main(void)
         if (state_changed) {
             state_changed = 0;
             display_state_info();
-            printf("Guess we doin %s now\n", state_names[current_state]);
-            printf("State changed to: %s\n", state_names[current_state]);
+            printf("Guess we doin %s now\n", state_names[g_current_state]);
+            printf("State changed to: %s\n", state_names[g_current_state]);
         }
         
         // Read joystick input (SAME for all states)
@@ -240,7 +241,7 @@ int main(void)
         
         // Execute the appropriate handler based on CURRENT STATE
         // This is the core of the FSM - different behavior for each state
-        switch (current_state) {
+        switch (g_current_state) {
             case STATE_CIRCLES:
                 handle_state_circles(&joystick_data);
                 break;
@@ -258,7 +259,7 @@ int main(void)
                 break;
             
             default:
-                current_state = STATE_CIRCLES;
+                g_current_state = STATE_CIRCLES;
                 break;
         }
         
@@ -278,28 +279,28 @@ void display_state_info(void) {
     
     // Display state name prominently
     LCD_printString("STATE:", 10, 10, 1, 3);
-    LCD_printString((char*)state_names[current_state], 10, 60, 6, 4);
+    LCD_printString((char*)state_names[g_current_state], 10, 60, 6, 4);
     
     // Display brief instructions for this state
-    switch (current_state) {
+    switch (g_current_state) {
         case STATE_CIRCLES:
             LCD_printString("X->Color", 10, 130, 1, 3);
             LCD_printString("Y->Size", 10, 170, 1, 3);
             break;
         
         case STATE_RECTANGLES:
-            LCD_printString("Move", 30, 130, 1, 3);
+            LCD_printString("Move", 10, 130, 1, 3);
             LCD_printString("Rectangle", 10, 170, 1, 3);
             break;
         
         case STATE_LINES:
-            LCD_printString("Point", 30, 130, 1, 3);
+            LCD_printString("Point", 10, 130, 1, 3);
             LCD_printString("Direction", 10, 170, 1, 3);
             break;
         
         case STATE_SPRITES:
-            LCD_printString("Move", 30, 130, 1, 3);
-            LCD_printString("Sprite", 20, 170, 1, 3);
+            LCD_printString("Move", 10, 130, 1, 3);
+            LCD_printString("Sprite", 10, 170, 1, 3);
             break;
     }
     
@@ -465,7 +466,7 @@ void handle_state_sprites(Joystick_t* joy) {
   * @param GPIO_Pin: Specifies which GPIO pin triggered the interrupt
   * 
   * @note This is the key to the FSM: when the button is pressed, we change the state!
-  *       The interrupt changes 'current_state', which causes the main loop to execute
+  *       The interrupt changes 'g_current_state', which causes the main loop to execute
   *       a different handler function. This is how external events trigger state transitions.
   *       
   *       IMPORTANT: We keep ISRs SHORT and SIMPLE - just change the state variable and
@@ -488,7 +489,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
       // STATE TRANSITION: Move to next state (wraps back to 0 after last state)
       // The (FSM_State_t) cast is needed because arithmetic operations (+, %) 
       // return an integer type, so we must explicitly cast back to enum type
-      current_state = (FSM_State_t)((current_state + 1) % STATE_COUNT);
+      g_current_state = (FSM_State_t)((g_current_state + 1) % STATE_COUNT);
       
       // Set flag to tell main loop that state has changed
       state_changed = 1;
